@@ -1,0 +1,10 @@
+name: Daily Rebuild
+on:
+  schedule: [{cron: "0 11 * * *"}]   # 6 AM ET (11 UTC)
+  workflow_dispatch:                # manual button
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo "Fake retrain done"  # we just rerun Jekyll to update timestamp
