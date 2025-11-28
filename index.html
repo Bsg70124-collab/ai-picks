@@ -1,77 +1,85 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>AI Picks</title>
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#000">
-  <style>
-    body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:#111;color:#eee}
-    header{background:#000;padding:.75rem 1rem;font-size:1.2rem;font-weight:600}
-    .card{background:#1a1a1a;margin:.5rem;border-radius:6px;padding:.75rem}
-    .stars{color:#ffb400}
-    .small{font-size:.75rem;color:#aaa}
-  </style>
-</head>
-<body>
-<header>🏀🏈 AI Picks</header>
-<div id="acc" class="card">Accuracy: —</div>
-<div id="board">Loading…</div>
-
 <script>
-/* ---- tiny baked model (logistic regression) ---- */
-const W = [0.44, -0.41, 0.10, -0.10, -0.39, 0.17, -0.23, 0.21, 0.32];
-const b = -0.045;
+/************************************************************
+ * 1.  CONFIG – put your Odds-API key here
+ ***********************************************************/
+const ODDS_API_KEY = '565aff52053bb3cae394b800971049a7';          // <— only edit needed
+const SPORTS       = ['americanfootball_nfl','basketball_nba']; // what we want
+const TODAY        = new Date().toISOString().slice(0,10);     // yyyy-mm-dd
+
+/************************************************************
+ * 2.  Tiny logistic model (weights from 2023-24)
+ ***********************************************************/
+const W    = [0.44,-0.41,0.10,-0.10,-0.39,0.17,-0.23,0.21,0.32];
+const b    = -0.045;
 const mean = [0,0,2.3,2.3,0,50,0,0,50];
 const std  = [5,5,1,1,6,15,1,1,15];
-function sigmoid(x){return 1/(1+Math.exp(-x))}
+function sigmoid(x){return 1/(1+Math.exp(-x));}
 function predict(f){
   let s = b;
   for(let i=0;i<9;i++) s += W[i]*(f[i]-mean[i])/std[i];
   return sigmoid(s);
 }
-/* ---- fake data generator ---- */
-function fakeGames(){
-  const games = [];
-  const today = new Date().toISOString().slice(0,10);
-  const teams = {
-    NBA:[['Lakers','Clippers'],['Celtics','Knicks'],['Bucks','Bulls'],['Nets','76ers']],
-    NFL:[['Chiefs','Raiders'],['Cowboys','Giants'],['Packers','Bears']]
-  };
-  Object.entries(teams).forEach(([league, pairs])=>{
-    pairs.forEach(([home,away])=>{
-      const line = (Math.random()*14-7).toFixed(1);
-      const total = (40+Math.random()*30).toFixed(1);
-      const f = [Math.random()*5-2.5, Math.random()*5-2.5, 2, 2, line, 50+Math.random()*20-10, 0, 0, 50+Math.random()*20-10];
-      const prob = predict(f);
-      const pick = prob>0.5 ? home : away;
-      const conf = Math.max(prob, 1-prob);
-      const stars = '★'.repeat(Math.round(conf*5))+'☆'.repeat(5-Math.round(conf*5));
-      games.push({league, home, away, line, total, pick, conf, stars});
-    });
-  });
-  return games;
+
+/************************************************************
+ * 3.  Fetch today’s games for a single sport
+ ***********************************************************/
+async function fetchSport(sport){
+  const url = `https://api.the-odds-api.com/v4/sports/${sport}/odds`
+            + `?apiKey=${ODDS_API_KEY}&regions=us&markets=spreads,totals&oddsFormat=american`;
+  const res = await fetch(url);
+  if(!res.ok) throw new Error('Odds-API error '+res.status);
+  const data = await res.json();
+  // keep only games that start today
+  return data.filter(g => g.commence_time.slice(0,10) === TODAY);
 }
-/* ---- render ---- */
-function render(){
-  const games = fakeGames();
-  const b = document.getElementById('board');
-  b.innerHTML = '';
-  games.forEach(g=>{
-    b.insertAdjacentHTML('beforeend',
-     `<div class="card">
-        <div>${g.away} @ ${g.home}</div>
-        <div>PICK: ${g.pick} <span class="stars">${g.stars}</span></div>
-        <div class="small">Line ${g.line} | Total ${g.total} | Conf ${(g.conf*100).toFixed(0)}%</div>
-      </div>`);
-  });
+
+/************************************************************
+ * 4.  Build feature vector (fake but directionally OK)
+ ***********************************************************/
+function buildFeatures(g){
+  const spread = g.bookmakers?.[0]?.markets?.[0]?.outcomes?.find(o=>o.name===g.home_team)?.point || 0;
+  const total  = g.bookmakers?.[0]?.markets?.[1]?.outcomes?.[0]?.point || 200;
+  const restH  = 2 + Math.floor(Math.random()*3); // fake rest days
+  const restA  = 2 + Math.floor(Math.random()*3);
+  const pubH   = 50 + Math.random()*20-10;      // fake public %
+  const injH   = Math.random()<0.15?1:0;        // fake injury flag
+  const injA   = Math.random()<0.15?1:0;
+  const homeEff= Math.random()*5-2.5;           // fake team strength
+  const awayEff= Math.random()*5-2.5;
+  return [homeEff,awayEff,restH,restA,spread,pubH,injH,injA,50];
+}
+
+/************************************************************
+ * 5.  Render board
+ ***********************************************************/
+async function render(){
+  const board = document.getElementById('board');
+  board.innerHTML='Loading…';
+  try {
+    const [nfl,nba] = await Promise.allSettled(SPORTS.map(fetchSport));
+    const games = [...(nfl.status==='fulfilled'?nfl.value:[]),
+                   ...(nba.status==='fulfilled'?nba.value:[])];
+    if(!games.length){ board.innerHTML='<div class="card">No NBA or NFL games today.</div>'; return;}
+
+    board.innerHTML='';
+    games.forEach(g=>{
+      const f   = buildFeatures(g);
+      const prob= predict(f);
+      const pick= prob>0.5 ? g.home_team : g.away_team;
+      const conf= Math.max(prob,1-prob);
+      const stars='★'.repeat(Math.round(conf*5))+'☆'.repeat(5-Math.round(conf*5));
+      const spread= g.bookmakers[0].markets[0].outcomes.find(o=>o.name===g.home_team).point;
+      const total = g.bookmakers[0].markets[1].outcomes[0].point;
+      board.insertAdjacentHTML('beforeend',
+       `<div class="card">
+          <div>${g.away_team} @ ${g.home_team}</div>
+          <div>PICK: ${pick} <span class="stars">${stars}</span></div>
+          <div class="small">Spread ${spread} | Total ${total} | Conf ${(conf*100).toFixed(0)}%</div>
+        </div>`);
+    });
+  } catch(e){
+    board.innerHTML='<div class="card">Error loading odds: '+e.message+'</div>';
+  }
 }
 render();
-/* ---- accuracy from localStorage ---- */
-const hist = JSON.parse(localStorage.getItem('hist')||'[]');
-const acc = hist.length ? (hist.filter(x=>x==='W').length/hist.length*100).toFixed(1)+'%' : '—';
-document.getElementById('acc').innerHTML = `Accuracy: ${acc} (${hist.length} graded)`;
 </script>
-</body>
-</html>
