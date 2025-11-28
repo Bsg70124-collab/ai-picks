@@ -23,7 +23,7 @@
 /* ----------  CONFIG  ---------- */
 const ODDS_API_KEY = '565aff52053bb3cae394b800971049a7';
 const SPORTS       = ['americanfootball_nfl','basketball_nba'];
-const TODAY        = new Date().toISOString().slice(0,10);
+const TODAY        = new Date().toLocaleDateString('en-CA'); // "YYYY-MM-DD" in UTC
 
 /* ----------  MODEL  ---------- */
 const W = [0.44,-0.41,0.10,-0.10,-0.39,0.17,-0.23,0.21,0.32];
@@ -80,4 +80,5 @@ window.addEventListener('DOMContentLoaded', render);
 </script>
 </body>
 </html>
+
 
