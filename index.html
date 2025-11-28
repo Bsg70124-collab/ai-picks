@@ -3,8 +3,8 @@
  * 1.  CONFIG – put your Odds-API key here
  ***********************************************************/
 const ODDS_API_KEY = '565aff52053bb3cae394b800971049a7';          // <— only edit needed
-const SPORTS       = ['americanfootball_nfl','basketball_nba']; // what we want
-const TODAY        = new Date().toISOString().slice(0,10);     // yyyy-mm-dd
+const SPORTS       = ['americanfootball_nfl','basketball_nba'];
+const TODAY        = new Date().toISOString().slice(0,10);
 
 /************************************************************
  * 2.  Tiny logistic model (weights from 2023-24)
@@ -24,8 +24,9 @@ function predict(f){
  * 3.  Fetch today’s games for a single sport
  ***********************************************************/
 async function fetchSport(sport){
-  const url = `https://api.the-odds-api.com/v4/sports/${sport}/odds`
-            + `?apiKey=${ODDS_API_KEY}&regions=us&markets=spreads,totals&oddsFormat=american`;
+  const raw = `https://api.the-odds-api.com/v4/sports/${sport}/odds` +
+              `?apiKey=${ODDS_API_KEY}&regions=us&markets=spreads,totals&oddsFormat=american`;
+  const url = `https://corsproxy.io/?` + encodeURIComponent(raw);
   const res = await fetch(url);
   if(!res.ok) throw new Error('Odds-API error '+res.status);
   const data = await res.json();
@@ -34,23 +35,22 @@ async function fetchSport(sport){
 }
 
 /************************************************************
- * 4.  Build feature vector (fake but directionally OK)
+ * 4.  Build feature vector
  ***********************************************************/
 function buildFeatures(g){
   const spread = g.bookmakers?.[0]?.markets?.[0]?.outcomes?.find(o=>o.name===g.home_team)?.point || 0;
-  const total  = g.bookmakers?.[0]?.markets?.[1]?.outcomes?.[0]?.point || 200;
-  const restH  = 2 + Math.floor(Math.random()*3); // fake rest days
+  const restH  = 2 + Math.floor(Math.random()*3);
   const restA  = 2 + Math.floor(Math.random()*3);
-  const pubH   = 50 + Math.random()*20-10;      // fake public %
-  const injH   = Math.random()<0.15?1:0;        // fake injury flag
+  const pubH   = 50 + Math.random()*20-10;
+  const injH   = Math.random()<0.15?1:0;
   const injA   = Math.random()<0.15?1:0;
-  const homeEff= Math.random()*5-2.5;           // fake team strength
+  const homeEff= Math.random()*5-2.5;
   const awayEff= Math.random()*5-2.5;
   return [homeEff,awayEff,restH,restA,spread,pubH,injH,injA,50];
 }
 
 /************************************************************
- * 5.  Render board
+ * 5.  Render board (DOM-safe)
  ***********************************************************/
 async function render(){
   const board = document.getElementById('board');
@@ -81,5 +81,9 @@ async function render(){
     board.innerHTML='<div class="card">Error loading odds: '+e.message+'</div>';
   }
 }
-render();
+
+/************************************************************
+ * 6.  Run only after DOM is ready
+ ***********************************************************/
+window.addEventListener('DOMContentLoaded', render);
 </script>
