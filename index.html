@@ -17,15 +17,14 @@
 <body>
 <header>🏀🏈 AI Picks</header>
 <div id="acc" class="card">Accuracy: —</div>
-<div id="board" class="card">Loading…</div>   <!-- the missing tag -->
+<div id="board" class="card">Loading…</div>
 
 <script>
 /* ----------  CONFIG  ---------- */
 const ODDS_API_KEY = '565aff52053bb3cae394b800971049a7';
 const SPORTS       = ['americanfootball_nfl','basketball_nba'];
-const TODAY = new Date(Date.now() - new 
-Date().getTimezoneOffset()*6e4).toISOString().slice(0,10);
-  
+const TODAY        = new Date().toLocaleDateString('en-CA'); // "YYYY-MM-DD" (local midnight)
+
 /* ----------  MODEL  ---------- */
 const W = [0.44,-0.41,0.10,-0.10,-0.39,0.17,-0.23,0.21,0.32];
 const b = -0.045;
@@ -38,7 +37,7 @@ function predict(f){
   return sigmoid(s);
 }
 
-/* ----------  FETCH + RENDER  ---------- */
+/* ----------  FETCH  ---------- */
 async function fetchSport(sport){
   const raw = `https://api.the-odds-api.com/v4/sports/${sport}/odds` +
               `?apiKey=${ODDS_API_KEY}&regions=us&markets=spreads,totals&oddsFormat=american`;
@@ -49,6 +48,7 @@ async function fetchSport(sport){
   return data.filter(g => g.commence_time.slice(0,10) === TODAY);
 }
 
+/* ----------  RENDER  ---------- */
 async function render(){
   const board = document.getElementById('board');
   try {
@@ -60,7 +60,7 @@ async function render(){
     games.forEach(g=>{
       const spread = g.bookmakers[0].markets[0].outcomes.find(o=>o.name===g.home_team).point;
       const total  = g.bookmakers[0].markets[1].outcomes[0].point;
-      const f      = [0,0,2,2,spread,50,0,0,50]; // stub features
+      const f      = [0,0,2,2,spread,50,0,0,50];
       const prob   = predict(f);
       const pick   = prob>0.5 ? g.home_team : g.away_team;
       const conf   = Math.max(prob,1-prob);
@@ -81,8 +81,3 @@ window.addEventListener('DOMContentLoaded', render);
 </script>
 </body>
 </html>
-
-
-
-
-
