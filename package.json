@@ -1,0 +1,7 @@
+{
+  "name": "ai-picks",
+  "type": "module",
+  "dependencies": {
+    "ml-logistic-regression": "^2.0.0"
+  }
+}
