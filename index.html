@@ -55,30 +55,36 @@ function showAcc(){
   document.getElementById('acc').innerHTML = `Accuracy: ${acc} (${graded.length} graded)`;
 }
 
-/* ----------  FETCH (truly free, no key, CORS OK)  ---------- */
+/* ----------  FETCH (ESPN public scoreboard – no key, CORS OK)  ---------- */
 async function fetchSport(sport){
-  // free JSON – no apiKey, 3-day window, NFL or NBA only
-  const host = sport==='americanfootball_nfl'
-    ? 'https://www.oddstrader.com/site-map/game-lines/nfl/'
-    : 'https://www.oddstrader.com/site-map/game-lines/nba/';
-  const url  = `https://corsproxy.io/?` + encodeURIComponent(host);
+  const espn = sport==='americanfootball_nfl'
+    ? 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard'
+    : 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard';
+  const url  = `https://corsproxy.io/?` + encodeURIComponent(espn);
   const res  = await fetch(url);
-  if(!res.ok) throw new Error('Fetch failed');
+  if(!res.ok) throw new Error('ESPN fetch failed');
   const data = await res.json();
-  // map to same shape as Odds-API + keep only today
-  return data.map(g=>({
-    id: g.id,
-    sport_key: sport,
-    commence_time: g.commence_time,
-    home_team: g.home_team,
-    away_team: g.away_team,
-    bookmakers: [{
-      markets: [
-        { outcomes: [{ name: g.home_team, point: g.spread }, { name: g.away_team, point: -g.spread }] },
-        { outcomes: [{ point: g.total }] }
-      ]
-    }]
-  })).filter(g => g.commence_time.slice(0,10) === TODAY);
+  // map ESPN shape to ours + keep only today
+  return data.events.map(e=>{
+    const g    = e.competitions[0];
+    const home = g.competitors.find(c=>c.homeAway==='home');
+    const away = g.competitors.find(c=>c.homeAway==='away');
+    const spread = (home?.odds?.[0]?.details || '').replace(home.team.shortDisplayName,'').trim();
+    const total  = home?.odds?.[0]?.overUnder || 200;
+    return {
+      id: e.id,
+      sport_key: sport,
+      commence_time: e.date,
+      home_team: home.team.shortDisplayName,
+      away_team: away.team.shortDisplayName,
+      bookmakers: [{
+        markets: [
+          { outcomes: [{ name: home.team.shortDisplayName, point: spread }, { name: away.team.shortDisplayName, point: -spread }] },
+          { outcomes: [{ point: total }] }
+        ]
+      }]
+    };
+  }).filter(g => g.commence_time.slice(0,10) === TODAY);
 }
 
 /* ----------  RENDER  ---------- */
