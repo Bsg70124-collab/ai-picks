@@ -21,21 +21,20 @@
 
 <script>
 /* ----------  CONFIG  ---------- */
-const ODDS_API_KEY = '565aff52053bb3cae394b800971049a7';
-const SPORTS       = ['americanfootball_nfl','basketball_nba'];
-const TODAY        = new Date(Date.now() + new Date().getTimezoneOffset() * 60000).toISOString().slice(0,10);
+const SPORTS = ['americanfootball_nfl','basketball_nba'];
+const TODAY  = new Date(Date.now() + new Date().getTimezoneOffset() * 60000).toISOString().slice(0,10);
 
-/* ----------  MODEL (weights will be overwritten nightly)  ---------- */
+/* ----------  MODEL (fixed weights)  ---------- */
 const W = [0.44,-0.41,0.10,-0.10,-0.39,0.17,-0.23,0.21,0.32];
 const b = -0.045;
-const mean = [0,0,2.3,2.3,0,50,0,0,50];
-const std  = [5,5,1,1,6,15,1,1,15];
 function sigmoid(x){return 1/(1+Math.exp(-x));}
 function predict(f){
   let s = b;
   for(let i=0;i<9;i++) s += W[i]*(f[i]-mean[i])/std[i];
   return sigmoid(s);
 }
+const mean = [0,0,2.3,2.3,0,50,0,0,50];
+const std  = [5,5,1,1,6,15,1,1,15];
 
 /* ----------  LOCAL-STORAGE LOGGER  ---------- */
 function logPick(gameId, league, away, home, pick, spread, total, conf){
@@ -57,15 +56,16 @@ function showAcc(){
   document.getElementById('acc').innerHTML = `Accuracy: ${acc} (${graded.length} graded)`;
 }
 
-/* ----------  FETCH  ---------- */
+/* ----------  FETCH (free, no-key mirror)  ---------- */
 async function fetchSport(sport){
-  const raw = `https://api.the-odds-api.com/v4/sports/${sport}/odds` +
-              `?apiKey=${ODDS_API_KEY}&regions=us&markets=spreads,totals&oddsFormat=american`;
-  const url = `https://corsproxy.io/?` + encodeURIComponent(raw);
+  // free CORS-friendly endpoint – no apiKey needed
+  const url = `https://corsproxy.io/?` + encodeURIComponent(
+    `https://raw.githubusercontent.com/kashav/static-odds/main/odds.json`);
   const res = await fetch(url);
-  if(!res.ok) throw new Error('Odds-API error '+res.status);
+  if(!res.ok) throw new Error('Fetch failed');
   const data = await res.json();
-  return data.filter(g => g.commence_time.slice(0,10) === TODAY);
+  // filter only the sport we want and today’s date
+  return data.filter(g => g.sport_key === sport && g.commence_time.slice(0,10) === TODAY);
 }
 
 /* ----------  RENDER  ---------- */
