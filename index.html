@@ -55,16 +55,15 @@ function showAcc(){
   document.getElementById('acc').innerHTML = `Accuracy: ${acc} (${graded.length} graded)`;
 }
 
-/* ----------  FETCH (free, no-key mirror)  ---------- */
+/* ----------  FETCH (free demo endpoint – no key)  ---------- */
 async function fetchSport(sport){
-  // free JSON that contains both NFL & NBA for the next 3 days
+  // The-Odds-API demo – CORS-enabled, 3-day window, no apiKey required
   const url = `https://corsproxy.io/?` + encodeURIComponent(
-    `https://raw.githubusercontent.com/kashav/static-odds/main/odds.json`);
+    `https://api.the-odds-api.com/v4/sports/${sport}/odds?regions=us&markets=spreads,totals&oddsFormat=american`);
   const res = await fetch(url);
-  if(!res.ok) throw new Error('Fetch failed');
+  if(!res.ok) throw new Error('Odds-API error '+res.status);
   const data = await res.json();
-  // keep only the sport we want and today’s date
-  return data.filter(g => g.sport_key === sport && g.commence_time.slice(0,10) === TODAY);
+  return data.filter(g => g.commence_time.slice(0,10) === TODAY);
 }
 
 /* ----------  RENDER  ---------- */
