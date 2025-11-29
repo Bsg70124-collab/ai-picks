@@ -4,7 +4,6 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>AI Picks</title>
-  <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#000">
   <style>
     body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:#111;color:#eee}
@@ -22,19 +21,19 @@
 <script>
 /* ----------  CONFIG  ---------- */
 const SPORTS = ['americanfootball_nfl','basketball_nba'];
-const TODAY  = new Date(Date.now() + new Date().getTimezoneOffset() * 60000).toISOString().slice(0,10);
+const TODAY  = new Date().toLocaleDateString('en-CA');   // UTC-midnight date
 
 /* ----------  MODEL (fixed weights)  ---------- */
 const W = [0.44,-0.41,0.10,-0.10,-0.39,0.17,-0.23,0.21,0.32];
 const b = -0.045;
+const mean = [0,0,2.3,2.3,0,50,0,0,50];
+const std  = [5,5,1,1,6,15,1,1,15];
 function sigmoid(x){return 1/(1+Math.exp(-x));}
 function predict(f){
   let s = b;
   for(let i=0;i<9;i++) s += W[i]*(f[i]-mean[i])/std[i];
   return sigmoid(s);
 }
-const mean = [0,0,2.3,2.3,0,50,0,0,50];
-const std  = [5,5,1,1,6,15,1,1,15];
 
 /* ----------  LOCAL-STORAGE LOGGER  ---------- */
 function logPick(gameId, league, away, home, pick, spread, total, conf){
@@ -58,13 +57,13 @@ function showAcc(){
 
 /* ----------  FETCH (free, no-key mirror)  ---------- */
 async function fetchSport(sport){
-  // free CORS-friendly endpoint – no apiKey needed
+  // free JSON that contains both NFL & NBA for the next 3 days
   const url = `https://corsproxy.io/?` + encodeURIComponent(
     `https://raw.githubusercontent.com/kashav/static-odds/main/odds.json`);
   const res = await fetch(url);
   if(!res.ok) throw new Error('Fetch failed');
   const data = await res.json();
-  // filter only the sport we want and today’s date
+  // keep only the sport we want and today’s date
   return data.filter(g => g.sport_key === sport && g.commence_time.slice(0,10) === TODAY);
 }
 
