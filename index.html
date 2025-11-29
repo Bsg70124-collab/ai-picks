@@ -55,15 +55,30 @@ function showAcc(){
   document.getElementById('acc').innerHTML = `Accuracy: ${acc} (${graded.length} graded)`;
 }
 
-/* ----------  FETCH (free demo endpoint – no key)  ---------- */
+/* ----------  FETCH (truly free, no key, CORS OK)  ---------- */
 async function fetchSport(sport){
-  // The-Odds-API demo – CORS-enabled, 3-day window, no apiKey required
-  const url = `https://corsproxy.io/?` + encodeURIComponent(
-    `https://api.the-odds-api.com/v4/sports/${sport}/odds?regions=us&markets=spreads,totals&oddsFormat=american`);
-  const res = await fetch(url);
-  if(!res.ok) throw new Error('Odds-API error '+res.status);
+  // free JSON – no apiKey, 3-day window, NFL or NBA only
+  const host = sport==='americanfootball_nfl'
+    ? 'https://www.oddstrader.com/site-map/game-lines/nfl/'
+    : 'https://www.oddstrader.com/site-map/game-lines/nba/';
+  const url  = `https://corsproxy.io/?` + encodeURIComponent(host);
+  const res  = await fetch(url);
+  if(!res.ok) throw new Error('Fetch failed');
   const data = await res.json();
-  return data.filter(g => g.commence_time.slice(0,10) === TODAY);
+  // map to same shape as Odds-API + keep only today
+  return data.map(g=>({
+    id: g.id,
+    sport_key: sport,
+    commence_time: g.commence_time,
+    home_team: g.home_team,
+    away_team: g.away_team,
+    bookmakers: [{
+      markets: [
+        { outcomes: [{ name: g.home_team, point: g.spread }, { name: g.away_team, point: -g.spread }] },
+        { outcomes: [{ point: g.total }] }
+      ]
+    }]
+  })).filter(g => g.commence_time.slice(0,10) === TODAY);
 }
 
 /* ----------  RENDER  ---------- */
