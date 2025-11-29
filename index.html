@@ -50,6 +50,25 @@ async function fetchSport(sport){
 
 /* ----------  RENDER  ---------- */
 async function render(){
+  /* ----------  LOCAL-STORAGE LOGGER  ---------- */
+function logPick(gameId, league, away, home, pick, spread, total, conf){
+  const hist = JSON.parse(localStorage.getItem('aiHist')||'[]');
+  hist.push({gameId, league, away, home, pick, spread, total, conf, result:null});
+  localStorage.setItem('aiHist', JSON.stringify(hist));
+}
+function scorePick(gameId, result){   // call from a button later
+  const hist = JSON.parse(localStorage.getItem('aiHist')||'[]');
+  const row  = hist.find(r=>r.gameId===gameId);
+  if(row) { row.result = result; localStorage.setItem('aiHist', JSON.stringify(hist)); }
+  showAcc();
+}
+function showAcc(){
+  const hist = JSON.parse(localStorage.getItem('aiHist')||'[]');
+  const graded = hist.filter(r=>r.result);
+  const won    = graded.filter(r=>r.result==='W').length;
+  const acc    = graded.length ? (won/graded.length*100).toFixed(1)+'%' : '—';
+  document.getElementById('acc').innerHTML = `Accuracy: ${acc} (${graded.length} graded)`;
+}
   const board = document.getElementById('board');
   try {
     const [nfl,nba] = await Promise.allSettled(SPORTS.map(fetchSport));
@@ -81,5 +100,6 @@ window.addEventListener('DOMContentLoaded', render);
 </script>
 </body>
 </html>
+
 
 
