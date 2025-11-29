@@ -20,9 +20,8 @@
 
 <script>
 /* ----------  CONFIG  ---------- */
-const BDL_KEY  = '59f29e05-1e15-4a7b-a237-c17d5aeec79b';   // BallDon’tLie
-const SPORTS   = ['americanfootball_nfl','basketball_nba'];
-const TODAY    = new Date().toLocaleDateString('en-CA');   // UTC-midnight date
+const SPORTS = ['americanfootball_nfl','basketball_nba'];
+const TODAY  = new Date().toLocaleDateString('en-CA');   // UTC-midnight date
 
 /* ----------  MODEL (fixed weights)  ---------- */
 const W = [0.44,-0.41,0.10,-0.10,-0.39,0.17,-0.23,0.21,0.32];
@@ -56,60 +55,36 @@ function showAcc(){
   document.getElementById('acc').innerHTML = `Accuracy: ${acc} (${graded.length} graded)`;
 }
 
-/* ----------  FETCH  ---------- */
+/* ----------  FETCH (ESPN public scoreboard – no key, CORS OK)  ---------- */
 async function fetchSport(sport){
-  if (sport==='basketball_nba') return await fetchNBA();
-  if (sport==='americanfootball_nfl') return await fetchNFL();
-  return [];
-}
-
-/* ----------  NBA via BallDon’tLie  ---------- */
-async function fetchNBA(){
-  // today’s games from BallDon’tLie + opening lines from free JSON
-  const urlGames = `https://corsproxy.io/?` + encodeURIComponent(
-    `https://app.balldontlie.io/api/v2/games?dates[]=${TODAY}&per_page=100`);
-  const res = await fetch(urlGames, {headers:{'Authorization':BDL_KEY}});
-  if(!res.ok) throw new Error('BDL games error '+res.status);
-  const games = (await res.json()).data;
-
-  // free static odds JSON (NFL + NBA, 3 days) – no key
-  const urlOdds = `https://corsproxy.io/?` + encodeURIComponent(
-    `https://raw.githubusercontent.com/kashav/static-odds/main/odds.json`);
-  const oddsRes = await fetch(urlOdds);
-  const oddsAll = oddsRes.ok ? await oddsRes.json() : [];
-
-  // map + merge
-  return games.map(g=>{
-    const home = g.home_team.name;
-    const away = g.visitor_team.name;
-    const odd  = oddsAll.find(o=>o.home_team===home && o.away_team===away);
-    const spread = odd?.bookmakers?.[0]?.markets?.[0]?.outcomes?.find(x=>x.name===home)?.point || 0;
-    const total  = odd?.bookmakers?.[0]?.markets?.[1]?.outcomes?.[0]?.point || 200;
+  const espn = sport==='americanfootball_nfl'
+    ? 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard'
+    : 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard';
+  const url  = `https://corsproxy.io/?` + encodeURIComponent(espn);
+  const res  = await fetch(url);
+  if(!res.ok) throw new Error('ESPN fetch failed');
+  const data = await res.json();
+  // map ESPN shape to ours + keep only today
+  return data.events.map(e=>{
+    const g    = e.competitions[0];
+    const home = g.competitors.find(c=>c.homeAway==='home');
+    const away = g.competitors.find(c=>c.homeAway==='away');
+    const spread = (home?.odds?.[0]?.details || '').replace(home.team.shortDisplayName,'').trim();
+    const total  = home?.odds?.[0]?.overUnder || 200;
     return {
-      id: g.id,
-      sport_key: 'basketball_nba',
-      commence_time: g.date,
-      home_team: home,
-      away_team: away,
+      id: e.id,
+      sport_key: sport,
+      commence_time: e.date,
+      home_team: home.team.shortDisplayName,
+      away_team: away.team.shortDisplayName,
       bookmakers: [{
         markets: [
-          { outcomes: [{ name: home, point: spread }, { name: away, point: -spread }] },
+          { outcomes: [{ name: home.team.shortDisplayName, point: spread }, { name: away.team.shortDisplayName, point: -spread }] },
           { outcomes: [{ point: total }] }
         ]
       }]
     };
-  });
-}
-
-/* ----------  NFL via free static JSON  ---------- */
-async function fetchNFL(){
-  const url = `https://corsproxy.io/?` + encodeURIComponent(
-    `https://raw.githubusercontent.com/kashav/static-odds/main/odds.json`);
-  const res = await fetch(url);
-  if(!res.ok) return [];
-  const data = await res.json();
-  return data.filter(g => g.sport_key === 'americanfootball_nfl' &&
-                         g.commence_time.slice(0,10) === TODAY);
+  }).filter(g => g.commence_time.slice(0,10) === TODAY);
 }
 
 /* ----------  RENDER  ---------- */
