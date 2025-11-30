@@ -20,8 +20,9 @@
 
 <script>
 /* ----------  CONFIG  ---------- */
-const SPORTS = ['americanfootball_nfl','basketball_nba'];
-const TODAY  = new Date().toLocaleDateString('en-CA');   // UTC-midnight date
+const ODDS_API_KEY = '565aff52053bb3cae394b800971049a7';   // <-- put your new free key here only
+const SPORTS       = ['americanfootball_nfl','basketball_nba'];
+const TODAY        = new Date().toLocaleDateString('en-CA');   // UTC-midnight date
 
 /* ----------  MODEL (fixed weights)  ---------- */
 const W = [0.44,-0.41,0.10,-0.10,-0.39,0.17,-0.23,0.21,0.32];
@@ -55,36 +56,15 @@ function showAcc(){
   document.getElementById('acc').innerHTML = `Accuracy: ${acc} (${graded.length} graded)`;
 }
 
-/* ----------  FETCH (ESPN public scoreboard – no key, CORS OK)  ---------- */
+/* ----------  FETCH (1000 calls/mo free tier)  ---------- */
 async function fetchSport(sport){
-  const espn = sport==='americanfootball_nfl'
-    ? 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard'
-    : 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard';
-  const url  = `https://corsproxy.io/?` + encodeURIComponent(espn);
-  const res  = await fetch(url);
-  if(!res.ok) throw new Error('ESPN fetch failed');
+  const raw = `https://api.the-odds-api.com/v4/sports/${sport}/odds` +
+              `?apiKey=${ODDS_API_KEY}&regions=us&markets=spreads,totals&oddsFormat=american`;
+  const url = `https://corsproxy.io/?` + encodeURIComponent(raw);
+  const res = await fetch(url);
+  if(!res.ok) throw new Error('Odds-API error '+res.status);
   const data = await res.json();
-  // map ESPN shape to ours + keep only today
-  return data.events.map(e=>{
-    const g    = e.competitions[0];
-    const home = g.competitors.find(c=>c.homeAway==='home');
-    const away = g.competitors.find(c=>c.homeAway==='away');
-    const spread = (home?.odds?.[0]?.details || '').replace(home.team.shortDisplayName,'').trim();
-    const total  = home?.odds?.[0]?.overUnder || 200;
-    return {
-      id: e.id,
-      sport_key: sport,
-      commence_time: e.date,
-      home_team: home.team.shortDisplayName,
-      away_team: away.team.shortDisplayName,
-      bookmakers: [{
-        markets: [
-          { outcomes: [{ name: home.team.shortDisplayName, point: spread }, { name: away.team.shortDisplayName, point: -spread }] },
-          { outcomes: [{ point: total }] }
-        ]
-      }]
-    };
-  }).filter(g => g.commence_time.slice(0,10) === TODAY);
+  return data.filter(g => g.commence_time.slice(0,10) === TODAY);
 }
 
 /* ----------  RENDER  ---------- */
