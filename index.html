@@ -20,9 +20,9 @@
 
 <script>
 /* ----------  CONFIG  ---------- */
-const ODDS_API_KEY = '565aff52053bb3cae394b800971049a7';   // <-- put your new free key here only
-const SPORTS       = ['americanfootball_nfl','basketball_nba'];
-const TODAY        = new Date().toLocaleDateString('en-CA');   // UTC-midnight date
+const BDL_KEY  = '59f29e05-1e15-4a7b-a237-c17d5aeec79b';   // BallDon’tLie
+const SPORTS   = ['americanfootball_nfl','basketball_nba'];
+const TODAY    = new Date().toLocaleDateString('en-CA');   // UTC-midnight date
 
 /* ----------  MODEL (fixed weights)  ---------- */
 const W = [0.44,-0.41,0.10,-0.10,-0.39,0.17,-0.23,0.21,0.32];
@@ -56,15 +56,28 @@ function showAcc(){
   document.getElementById('acc').innerHTML = `Accuracy: ${acc} (${graded.length} graded)`;
 }
 
-/* ----------  FETCH (1000 calls/mo free tier)  ---------- */
+/* ----------  FETCH (BallDon’tLie – live odds, your key)  ---------- */
 async function fetchSport(sport){
-  const raw = `https://api.the-odds-api.com/v4/sports/${sport}/odds` +
-              `?apiKey=${ODDS_API_KEY}&regions=us&markets=spreads,totals&oddsFormat=american`;
-  const url = `https://corsproxy.io/?` + encodeURIComponent(raw);
-  const res = await fetch(url);
-  if(!res.ok) throw new Error('Odds-API error '+res.status);
+  const league = sport==='basketball_nba' ? 'nba' : 'nfl';
+  const url = `https://corsproxy.io/?` + encodeURIComponent(
+    `https://api.balldontlie.io/${league}/v1/odds?dates[]=${TODAY}&per_page=100`);
+  const res = await fetch(url, {headers:{'Authorization':BDL_KEY}});
+  if(!res.ok) throw new Error('BDL odds error '+res.status);
   const data = await res.json();
-  return data.filter(g => g.commence_time.slice(0,10) === TODAY);
+  // map to same shape as Odds-API
+  return data.data.map(o=>({
+    id: o.id,
+    sport_key: sport,
+    commence_time: o.game.date,
+    home_team: o.game.home_team.name,
+    away_team: o.game.away_team.name,
+    bookmakers: [{
+      markets: [
+        { outcomes: [{ name: o.game.home_team.name, point: o.spread_open }, { name: o.game.away_team.name, point: -o.spread_open }] },
+        { outcomes: [{ point: o.total_open }] }
+      ]
+    }]
+  }));
 }
 
 /* ----------  RENDER  ---------- */
