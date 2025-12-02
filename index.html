@@ -20,7 +20,6 @@
 
 <script>
 /* ----------  CONFIG  ---------- */
-const ODDS_API_KEY = '030d3bda-b44a-447f-8166-1459f3a669de';
 const SPORTS = ['americanfootball_nfl','basketball_nba'];
 const TODAY  = new Date().toLocaleDateString('en-CA');   // UTC-midnight date
 
@@ -56,36 +55,35 @@ function showAcc(){
   document.getElementById('acc').innerHTML = `Accuracy: ${acc} (${graded.length} graded)`;
 }
 
-/* ----------  FETCH (ESPN public scoreboard – no key, never 401)  ---------- */
+/* ----------  FETCH (ESPN public HTML – no key, no limits)  ---------- */
 async function fetchSport(sport){
-  const espn = sport==='americanfootball_nfl'
-    ? 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard'
-    : 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard';
-  const url  = `https://corsproxy.io/?` + encodeURIComponent(espn);
-  const res  = await fetch(url);
-  if(!res.ok) throw new Error('ESPN fetch failed');
-  const data = await res.json();
-  // scrape live lines from the same public JSON you see in browser
-  return data.events.map(e=>{
-    const g    = e.competitions[0];
-    const home = g.competitors.find(c=>c.homeAway==='home');
-    const away = g.competitors.find(c=>c.homeAway==='away');
-    const spread = (home?.odds?.[0]?.details || '').replace(home.team.shortDisplayName,'').trim();
-    const total  = home?.odds?.[0]?.overUnder || 200;
-    return {
-      id: e.id,
+  const url = sport==='basketball_nba'
+    ? 'https://www.espn.com/nba/scoreboard'
+    : 'https://www.espn.com/nfl/scoreboard';
+  const html = await (await fetch(`https://corsproxy.io/?`+encodeURIComponent(url))).text();
+
+  // quick regex scrape: team names + current spread & total from the same page you see
+  const games = [];
+  const re = /data-away-abbr="([^"]+)"[\s\S]*?data-home-abbr="([^"]+)"[\s\S]*?data-date="([^"]+)"[\s\S]*?spread":"([^"]+)","overUnder":"([^"]+)"/g;
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    const [_, away, home, date, spread, total] = m;
+    if (date.slice(0,10) !== TODAY) continue;
+    games.push({
+      id: `${away}@${home}`,
       sport_key: sport,
-      commence_time: e.date,
-      home_team: home.team.shortDisplayName,
-      away_team: away.team.shortDisplayName,
+      commence_time: date,
+      home_team: home,
+      away_team: away,
       bookmakers: [{
         markets: [
-          { outcomes: [{ name: home.team.shortDisplayName, point: spread }, { name: away.team.shortDisplayName, point: -spread }] },
+          { outcomes: [{ name: home, point: spread }, { name: away, point: -spread }] },
           { outcomes: [{ point: total }] }
         ]
       }]
-    };
-  }).filter(g => g.commence_time.slice(0,10) === TODAY);
+    });
+  }
+  return games;
 }
 
 /* ----------  RENDER  ---------- */
@@ -126,4 +124,3 @@ window.addEventListener('DOMContentLoaded', ()=>{render(); showAcc();});
 </script>
 </body>
 </html>
-
