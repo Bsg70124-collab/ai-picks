@@ -24,7 +24,6 @@ const TODAY  = new Date().toISOString().slice(0,10);   // YYYY-MM-DD
 
 /* ----------  FETCH (TheSportsDB V1 – free, no key)  ---------- */
 async function fetchSport(sport){
-  // free public key = 123
   const leagueId = sport==='basketball_nba' ? 4387 : 4391;   // NBA / NFL league IDs
   const url = `https://www.thesportsdb.com/api/v1/json/123/eventsday.php?d=${TODAY}&l=${leagueId}`;
   const res  = await fetch(url);
@@ -32,7 +31,6 @@ async function fetchSport(sport){
   const data = await res.json();
   if(!data.events) return [];
   return data.events.map(e=>{
-    // TheSportsDB returns home / away + strHomeSpread / strAwaySpread / strTotal
     const home = e.strHomeTeam;
     const away = e.strAwayTeam;
     const spread = parseFloat(e.strHomeSpread || '0');
@@ -76,4 +74,37 @@ async function render(){
           <div class="small">Spread ${g.spread} | Total ${g.total} | Conf ${(conf*100).toFixed(0)}%</div>
           <button onclick="score('${g.id}','W')">✅ Win</button>
           <button onclick="score('${g.id}','L')">❌ Loss</button>
-          <button onclick="→ [truncated]
+          <button onclick="score('${g.id}','P')">➖ Push</button>
+        </div>`);
+      logPick(g.id, g.sport_key, g.away_team, g.home_team, pick, g.spread, g.total, conf);
+    });
+    showAcc();
+  } catch(e){
+    board.innerHTML='<div class="card">Error: '+e.message+'</div>';
+  }
+}
+
+/* ----------  LOCAL-STORAGE LOGGER  ---------- */
+function logPick(gameId, league, away, home, pick, spread, total, conf){
+  const hist = JSON.parse(localStorage.getItem('aiHist')||'[]');
+  hist.push({gameId, league, away, home, pick, spread, total, conf, result:null});
+  localStorage.setItem('aiHist', JSON.stringify(hist));
+}
+function score(gameId, result){
+  const hist = JSON.parse(localStorage.getItem('aiHist')||'[]');
+  const row  = hist.find(r=>r.gameId===gameId);
+  if(row){ row.result = result; localStorage.setItem('aiHist', JSON.stringify(hist)); }
+  showAcc();
+}
+function showAcc(){
+  const hist = JSON.parse(localStorage.getItem('aiHist')||'[]');
+  const graded = hist.filter(r=>r.result);
+  const won    = graded.filter(r=>r.result==='W').length;
+  const acc    = graded.length ? (won/graded.length*100).toFixed(1)+'%' : '—';
+  document.getElementById('acc').innerHTML = `Accuracy: ${acc} (${graded.length} graded)`;
+}
+
+window.addEventListener('DOMContentLoaded', ()=>{render(); showAcc();});
+</script>
+</body>
+</html>
