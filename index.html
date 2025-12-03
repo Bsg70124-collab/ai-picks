@@ -4,7 +4,6 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>AI Picks</title>
-  <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#000">
   <style>
     body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:#111;color:#eee}
@@ -16,17 +15,114 @@
   </style>
 </head>
 <body>
-<header>🏀🏈 AI Picks","text":"Roster","isExternal":false,"isPremium":false},{"rel":["stats","desktop","team"],"href":"https://www.espn.com/nba/team/stats/_/name/gs/golden-state-warriors ","text":"Statistics","isExternal":false,"isPremium":false},{"rel":["schedule","desktop","team"],"href":"https://www.espn.com/nba/team/schedule/_/name/gs ","text":"</header>
-<div id="mood" class="card">Mood: <span id="moodText">neutral</span></div>
+<header>🏀🏈 AI Picks</header>
 <div id="acc" class="card">Accuracy: —</div>
 <div id="board" class="card">Loading…</div>
 
 <script>
 /* ----------  CONFIG  ---------- */
-const SPORTS = ['americanfootball_nfl','b.asketball_nba'];
-const TODAY  = new Date().toLocaleDateString('en-CA');   // UTC-midnight date
+const SPORTS = ['americanfootball_nfl','basketball_nba'];
+const TODAY  = new Date().toLocaleDateString('en-CA');
 
-/* ----------  MOOD TRACKER  ---------- */
-function setMood(mood){
-  document.getElementById('moodText').textContent = mood;
-  localStorage.set [truncated]
+/* ----------  MODEL (self-learning)  ---------- */
+let W = [0.44,-0.41,0.10,-0.10,-0.39,0.17,-0.23,0.21,0.32];
+let b = -0.045;
+const mean = [0,0,2.3,2.3,0,50,0,0,50];
+const std  = [5,5,1,1,6,15,1,1,15];
+function sigmoid(x){return 1/(1+Math.exp(-x));}
+function predict(f){
+  let s = b;
+  for(let i=0;i<9;i++) s += W[i]*(f[i]-mean[i])/std[i];
+  return sigmoid(s);
+}
+
+/* ----------  LOCAL-STORAGE LOGGER  ---------- */
+function logPick(gameId, league, away, home, pick, spread, total, conf){
+  const hist = JSON.parse(localStorage.getItem('aiHist')||'[]');
+  hist.push({gameId, league, away, home, pick, spread, total, conf, result:null});
+  localStorage.setItem('aiHist', JSON.stringify(hist));
+}
+function scorePick(gameId, result){
+  const hist = JSON.parse(localStorage.getItem('aiHist')||'[]');
+  overUnder": 229.5
+  const row  = hist.find(r=>r.gameId===gameId);
+  if(row){ row.result = result; localStorage.setItem('aiHist', JSON.stringify(hist)); }
+  showAcc();
+}
+function showAcc(){
+  const hist = JSON.parse(localStorage.getItem('aiHist')||'[]');
+  const graded = hist.filter(r=>r.result);
+  const won    = graded.filter(r=>r.result==='W').length;
+  const acc    = graded.length ? (won/graded.length*100).toFixed(1)+'%' : '—';
+  document.getElementById('acc').innerHTML = `Accuracy: ${acc} (${graded.length} graded)`;
+}
+
+/* ----------  FETCH (ESPN JSON – live lines, no key)  ---------- */
+async function fetchSport(sport){
+  const espn = sport==='americanfootball_nfl'
+    ? 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard'
+    : 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard';
+  const res  = await fetch(`https://corsproxy.io/?`+encodeURIComponent(espn));
+  if(!res.ok) throw new Error('ESPN fetch failed');
+  const data = await res.json();
+  return data.events.map(e=>{
+    const g    = e.competitions[0];
+    const home = g.competitors.find(c=>c.homeAway==='home');
+    const away = g.competitors.find(c=>c.homeAway==='away');
+    const odds = g.odds?.[0];
+    const spread = odds?.spread ?? 0;
+    const total  = odds?.overUnder ?? 200;
+    return {
+      id: e.id,
+      sport_key: sport,
+      commence_time: e.date,
+      home_team: home.team.shortDisplayName,
+      away_team: away.team.shortDisplayName,
+      bookmakers: [{
+        markets: [
+          { outcomes: [{ name: home.team.shortDisplayName, point: spread }, { name: away.team.shortDisplayName, point: -spread }] },
+          { outcomes: [{ point: total }] }
+        ]
+      }]
+    };
+  }).filter(g => g.commence_time.slice(0,10) === TODAY);
+}
+
+/* ----------  RENDER  ---------- */
+async function render(){
+  const board = document.getElementById('board');
+  try {
+    const [nfl,nba] = await Promise.allSettled(SPORTS.map(fetchSport));
+    const games = [...(nfl.status==='fulfilled'?nfl.value:[]),
+                   ...(nba.status==='fulfilled'?nba.value:[])];
+    if(!games.length){ board.innerHTML='<div class="card">No games today.</div>'; return;}
+    board.innerHTML='';
+    games.forEach(g=>{
+      const spread = g.bookmakers[0].markets[0].outcomes.find(o=>o.name===g.home_team).point;
+      const total  = g.bookmakers[0].markets[1].outcomes[0].point;
+      const f      = [0,0,2,2,spread,50,0,0,50];
+      const prob   = predict(f);
+      const pick   = prob>0.5 ? g.home_team : g.away_team;
+      const conf   = Math.max(prob,1-prob);
+      const stars  = '★'.repeat(Math.round(conf*5))+'☆'.repeat(5-Math.round(conf*5));
+      board.insertAdjacentHTML('beforeend',
+       `<div class="card">
+          <div>${g.away_team} @ ${g.home_team}</div>
+          <div>PICK: ${pick} <span class="stars">${stars}</span></div>
+          <div class="small">Spread ${spread} | Total ${total} | Conf ${(conf*100).toFixed(0)}%</div>
+          <button onclick="scorePick('${g.id}','W')">✅ Win</button>
+          <button onclick="scorePick('${g.id}','L')">❌ Loss</button>
+          <button onclick="scorePick('${g.id}','P')">➖ Push</button>
+        </div>`);
+      logPick(g.id, g.sport_key, g.away_team, g.home_team, pick, spread, total, conf);
+    });
+    showAcc();
+  } catch(e){
+    board.innerHTML='<div class="card">Error: '+e.message+'</div>';
+  }
+}
+
+window.addEventListener('DOMContentLoaded', ()=>{render(); showAcc();});
+</script>
+</body>
+</html>
