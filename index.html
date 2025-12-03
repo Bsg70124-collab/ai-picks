@@ -4,7 +4,6 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>AI Picks</title>
-  <meta name="theme-color" content="#000">
   <style>
     body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:#111;color:#eee}
     header{background:#000;padding:.75rem 1rem;font-size:1.2rem;font-weight:600}
@@ -20,48 +19,15 @@
 <div id="board" class="card">Loading…</div>
 
 <script>
-/* ----------  CONFIG  ---------- */
 const SPORTS = ['americanfootball_nfl','basketball_nba'];
 const TODAY  = new Date().toLocaleDateString('en-CA');
 
-/* ----------  MODEL (self-learning)  ---------- */
-let W = [0.44,-0.41,0.10,-0.10,-0.39,0.17,-0.23,0.21,0.32];
-let b = -0.045;
-const mean = [0,0,2.3,2.3,0,50,0,0,50];
-const std  = [5,5,1,1,6,15,1,1,15];
-function sigmoid(x){return 1/(1+Math.exp(-x));}
-function predict(f){
-  let s = b;
-  for(let i=0;i<9;i++) s += W[i]*(f[i]-mean[i])/std[i];
-  return sigmoid(s);
-}
-
-/* ----------  LOCAL-STORAGE LOGGER  ---------- */
-function logPick(gameId, league, away, home, pick, spread, total, conf){
-  const hist = JSON.parse(localStorage.getItem('aiHist')||'[]');
-  hist.push({gameId, league, away, home, pick, spread, total, conf, result:null});
-  localStorage.setItem('aiHist', JSON.stringify(hist));
-}
-function scorePick(gameId, result){
-  const hist = JSON.parse(localStorage.getItem('aiHist')||'[]');
-  const row  = hist.find(r=>r.gameId===gameId);
-  if(row){ row.result = result; localStorage.setItem('aiHist', JSON.stringify(hist)); }
-  showAcc();
-}
-function showAcc(){
-  const hist = JSON.parse(localStorage.getItem('aiHist')||'[]');
- &nbsp;const graded = hist.filter(r=>r.result);
-  const won    = graded.filter(r=>r.result==='W').length;
-  const acc    = graded.length ? (won/graded.length*100).toFixed(1)+'%' : '—';
-  document.getElementById('acc').innerHTML = `Accuracy: ${acc} (${graded.length} graded)`;
-}
-
-/* ----------  FETCH (ESPN JSON – live lines, no key)  ---------- */
+/* ----------  FETCH TODAY’S GAMES FROM ESPN  ---------- */
 async function fetchSport(sport){
-  const espn = sport==='americanfootball_nfl'
-    ? 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard'
-    : 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard';
-  const res  = await fetch(`https://corsproxy.io/?`+encodeURIComponent(espn));
+  const url = sport==='basketball_nba'
+    ? 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard'
+    : 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard';
+  const res  = await fetch(url);
   if(!res.ok) throw new Error('ESPN fetch failed');
   const data = await res.json();
   return data.events.map(e=>{
@@ -77,14 +43,16 @@ async function fetchSport(sport){
       commence_time: e.date,
       home_team: home.team.shortDisplayName,
       away_team: away.team.shortDisplayName,
-      bookmakers: [{
-        markets: [
-          { outcomes: [{ name: home.team.shortDisplayName, point: spread }, { name: away.team.shortDisplayName, point: -spread }] },
-          { outcomes: [{ point: total }] }
-        ]
-      }]
+      spread: spread,
+      total: total
     };
   }).filter(g => g.commence_time.slice(0,10) === TODAY);
+}
+
+/* ----------  SIMPLE MODEL (fixed for now)  ---------- */
+function predict(spread){
+  // crude: fav if spread < 0
+  return spread < 0 ? 0.55 : 0.45;
 }
 
 /* ----------  RENDER  ---------- */
@@ -93,14 +61,11 @@ async function render(){
   try {
     const [nfl,nba] = await Promise.allSettled(SPORTS.map(fetchSport));
     const games = [...(nfl.status==='fulfilled'?nfl.value:[]),
-                   ...(nba.status==='fulfilled'?nba.value:]'];
+                   ...(nba.status==='fulfilled'?nba.value:[])];
     if(!games.length){ board.innerHTML='<div class="card">No games today.</div>'; return;}
     board.innerHTML='';
     games.forEach(g=>{
-      const spread = g.bookmakers[0].markets[0].outcomes.find(o=>o.name===g.home_team).point;
-      const total  = g.bookmakers[0].markets[1].outcomes[0].point;
-      const f      = [0,0,2,2,spread,50,0,0,50];
-      const prob   = predict(f);
+      const prob   = predict(g.spread);
       const pick   = prob>0.5 ? g.home_team : g.away_team;
       const conf   = Math.max(prob,1-prob);
       const stars  = '★'.repeat(Math.round(conf*5))+'☆'.repeat(5-Math.round(conf*5));
@@ -108,17 +73,37 @@ async function render(){
        `<div class="card">
           <div>${g.away_team} @ ${g.home_team}</div>
           <div>PICK: ${pick} <span class="stars">${stars}</span></div>
-          <div class="small">Spread ${spread} | Total ${total} | Conf ${(conf*100).toFixed(0)}%</div>
-          <button onclick="scorePick('${g.id}','W')">✅ Win</button>
-          <button onclick="scorePick('${g.id}','L')">❌ Loss</button>
-          <button onclick="scorePick('${g.id}','P')">➖ Push</button>
+          <div class="small">Spread ${g.spread} | Total ${g.total} | Conf ${(conf*100).toFixed(0)}%</div>
+          <button onclick="score('${g.id}','W')">✅ Win</button>
+          <button onclick="score('${g.id}','L')">❌ Loss</button>
+          <button onclick="score('${g.id}','P')">➖ Push</button>
         </div>`);
-      logPick(g.id, g.sport_key, g.away_team, g.home_team, pick, spread, total, conf);
+      logPick(g.id, g.sport_key, g.away_team, g.home_team, pick, g.spread, g.total, conf);
     });
     showAcc();
   } catch(e){
     board.innerHTML='<div class="card">Error: '+e.message+'</div>';
   }
+}
+
+/* ----------  LOCAL-STORAGE LOGGER  ---------- */
+function logPick(gameId, league, away, home, pick, spread, total, conf){
+  const hist = JSON.parse(localStorage.getItem('aiHist')||'[]');
+  hist.push({gameId, league, away, home, pick, spread, total, conf, result:null});
+  localStorage.setItem('aiHist', JSON.stringify(hist));
+}
+function score(gameId, result){
+  const hist = JSON.parse(localStorage.getItem('aiHist')||'[]');
+  const row  = hist.find(r=>r.gameId===gameId);
+  if(row){ row.result = result; localStorage.setItem('aiHist', JSON.stringify(hist)); }
+  showAcc();
+}
+function showAcc(){
+  const hist = JSON.parse(localStorage.getItem('aiHist')||'[]');
+  const graded = hist.filter(r=>r.result);
+  const won    = graded.filter(r=>r.result==='W').length;
+  const acc    = graded.length ? (won/graded.length*100).toFixed(1)+'%' : '—';
+  document.getElementById('acc').innerHTML = `Accuracy: ${acc} (${graded.length} graded)`;
 }
 
 window.addEventListener('DOMContentLoaded', ()=>{render(); showAcc();});
