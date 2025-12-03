@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Predictions - AI Sports Picks</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .gradient-text {
+            background: linear-gradient(135deg, #10b981, #3b82f6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .glass-effect {
+            backdrop-filter: blur(10px);
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .prediction-card {
+            transition: all 0.3s ease;
+            border-left: 4px solid transparent;
+        }
+        .prediction-card.high-confidence {
+            border-left-color: #10b981;
+        }
+        .prediction-card.medium-confidence {
+            border-left-color: #f59e0b;
+        }
+        .prediction-card.low-confidence {
+            border-left-color: #ef4444;
+        }
+        .prediction-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-white min-h-screen">
+    <!-- Navigation -->
+    <nav class="fixed top-0 w-full z-50 glass-effect">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center space-x-2">
+                    <div class="text-2xl">🏆</div>
+                    <span class="text-xl font-bold gradient-text">AI Sports Picks</span>
+                </div>
+                <div class="hidden md:flex space-x-8">
+                    <a href="index.html" class="text-white hover:text-emerald-300 transition-colors">Dashboard</a>
+                    <a href="analytics.html" class="text-white hover:text-emerald-300 transition-colors">Analytics</a>
+                    <a href="predictions.html" class="text-emerald-400 hover:text-emerald-300 transition-colors">Predictions</a>
+                    <a href="performance.html" class="text-white hover:text-emerald-300 transition-colors">Performance</a>
+                    <a href="bankroll.html" class="text-white hover:text-emerald-300 transition-colors">Bankroll</a>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="text-sm text-gray-300">Accuracy: <span id="nav-accuracy" class="text-emerald-400 font-semibold">—</span></div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Header -->
+    <section class="pt-24 pb-8 bg-slate-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-4xl font-black mb-4">
+                        <span class="gradient-text">AI Predictions</span>
+                    </h1>
+                    <p class="text-xl text-gray-300">Detailed analysis and predictions for today's games</p>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <select id="sport-filter" class="bg-slate-700 text-white px-4 py-2 rounded-lg border border-slate-600">
+                        <option value="all">All Sports</option>
+                        <option value="nba">NBA</option>
+                        <option value="nfl">NFL</option>
+                    </select>
+                    <button onclick="refreshPredictions()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2 rounded-lg font-semibold transition-all">
+                        Refresh
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    <main class="py-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <!-- Filter Bar -->
+            <div class="flex flex-wrap gap-4 mb-8">
+                <button onclick="filterPredictions('all')" class="filter-btn active bg-emerald-600 text-white px-4 py-2 rounded-lg font-semibold">
+                    All Games
+                </button>
+                <button onclick="filterPredictions('high')" class="filter-btn bg-slate-700 text-gray-300 hover:bg-slate-600 px-4 py-2 rounded-lg font-semibold transition-all">
+                    High Confidence
+                </button>
+                <button onclick="filterPredictions('medium')" class="filter-btn bg-slate-700 text-gray-300 hover:bg-slate-600 px-4 py-2 rounded-lg font-semibold transition-all">
+                    Medium Confidence
+                </button>
+                <button onclick="filterPredictions('low')" class="filter-btn bg-slate-700 text-gray-300 hover:bg-slate-600 px-4 py-2 rounded-lg font-semibold transition-all">
+                    Low Confidence
+                </button>
+            </div>
+
+            <!-- Predictions Grid -->
+            <div id="predictions-container" class="space-y-6">
+                <div class="text-center py-12">
+                    <div class="text-4xl mb-4">📊</div>
+                    <p class="text-gray-300">Loading predictions...</p>
+                </div>
+            </div>
+
+            <!-- Analysis Section -->
+            <div class="mt-12 grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <!-- Market Insights -->
+                <div class="glass-effect rounded-xl p-6">
+                    <h3 class="text-xl font-semibold mb-4 text-white">Market Insights</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <div class="flex justify-between mb-2">
+                                <span class="text-gray-300">Public Betting %</span>
+                                <span class="text-emerald-400" id="public-betting">65%</span>
+                            </div>
+                            <div class="w-full bg-gray-700 rounded-full h-2">
+                                <div class="bg-emerald-400 h-2 rounded-full" style="width: 65%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between mb-2">
+                                <span class="text-gray-300">Line Movement</span>
+                                <span class="text-blue-400" id="line-movement">-2.5</span>
+                            </div>
+                            <div class="text-sm text-gray-400">Average line change</div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between mb-2">
+                                <span class="text-gray-300">Sharp Money</span>
+                                <span class="text-purple-400" id="sharp-money">Active</span>
+                            </div>
+                            <div class="text-sm text-gray-400">Professional betting activity</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI Model Performance -->
+                <div class="glass-effect rounded-xl p-6">
+                    <h3 class="text-xl font-semibold mb-4 text-white">Model Performance</h3>
+                    <div class="space-y-4">
+                        <div class="flex justify-between">
+                            <span class="text-gray-300">NBA Accuracy</span>
+                            <span class="text-emerald-400 font-semibold" id="nba-accuracy">72.5%</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-300">NFL Accuracy</span>
+                            <span class="text-blue-400 font-semibold" id="nfl-accuracy">68.3%</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-300">Model Confidence</span>
+                            <span class="text-purple-400 font-semibold" id="model-confidence">85.2%</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-300">Prediction Speed</span>
+                            <span class="text-orange-400 font-semibold" id="prediction-speed">< 1s</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Weather & Conditions -->
+                <div class="glass-effect rounded-xl p-6">
+                    <h3 class="text-xl font-semibold mb-4 text-white">Game Conditions</h3>
+                    <div class="space-y-4">
+                        <div class="flex justify-between">
+                            <span class="text-gray-300">Weather Impact</span>
+                            <span class="text-emerald-400" id="weather-impact">Low</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-300">Injury Reports</span>
+                            <span class="text-yellow-400" id="injury-reports">Moderate</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-300">Rest Advantage</span>
+                            <span class="text-blue-400" id="rest-advantage">Even</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-300">Home Court Edge</span>
+                            <span class="text-purple-400" id="home-edge">3.2%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-800 py-8 mt-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <p class="text-gray-400">© 2025 AI Sports Picks. Intelligent predictions for smarter betting.</p>
+        </div>
+    </footer>
+
+    <script src="predictions.js"></script>
+</body>
+</html>

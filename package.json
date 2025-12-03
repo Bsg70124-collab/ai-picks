@@ -1,7 +1,31 @@
 {
-  "name": "ai-picks",
-  "type": "module",
+  "name": "ai-sports-picks",
+  "version": "1.0.0",
+  "description": "AI-powered sports betting predictions with bankroll management",
+  "main": "index.html",
+  "scripts": {
+    "fetch-predictions": "node scripts/fetch-predictions.js",
+    "build": "npm run fetch-predictions",
+    "dev": "python -m http.server 8000",
+    "start": "npm run dev"
+  },
   "dependencies": {
-    "ml-logistic-regression": "^2.0.0"
+    "node-fetch": "^3.3.0",
+    "fs-extra": "^11.1.0"
+  },
+  "devDependencies": {},
+  "keywords": [
+    "sports",
+    "betting",
+    "ai",
+    "predictions",
+    "bankroll",
+    "management"
+  ],
+  "author": "AI Sports Picks Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/ai-sports-picks.git"
   }
 }

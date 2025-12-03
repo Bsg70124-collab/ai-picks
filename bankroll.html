@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bankroll Management - AI Sports Picks</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/3.0.3/plotly.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .gradient-text {
+            background: linear-gradient(135deg, #10b981, #3b82f6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .glass-effect {
+            backdrop-filter: blur(10px);
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-white min-h-screen">
+    <!-- Navigation -->
+    <nav class="fixed top-0 w-full z-50 glass-effect">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center space-x-2">
+                    <div class="text-2xl">🏆</div>
+                    <span class="text-xl font-bold gradient-text">AI Sports Picks</span>
+                </div>
+                <div class="hidden md:flex space-x-8">
+                    <a href="index.html" class="text-white hover:text-emerald-300 transition-colors">Dashboard</a>
+                    <a href="analytics.html" class="text-white hover:text-emerald-300 transition-colors">Analytics</a>
+                    <a href="predictions.html" class="text-white hover:text-emerald-300 transition-colors">Predictions</a>
+                    <a href="performance.html" class="text-white hover:text-emerald-300 transition-colors">Performance</a>
+                    <a href="bankroll.html" class="text-emerald-400 hover:text-emerald-300 transition-colors">Bankroll</a>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="text-sm text-gray-300">Bankroll: <span id="nav-bankroll" class="text-emerald-400 font-semibold">$1,000</span></div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Header -->
+    <section class="pt-24 pb-8 bg-slate-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-4xl font-black mb-4">
+                        <span class="gradient-text">Bankroll Management</span>
+                    </h1>
+                    <p class="text-xl text-gray-300">Professional betting bankroll tracking and management</p>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button onclick="resetBankroll()" class="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg font-semibold transition-all">
+                        Reset
+                    </button>
+                    <button onclick="exportBankrollData()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold transition-all">
+                        Export
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    <main class="py-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <!-- Bankroll Overview -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div class="glass-effect rounded-xl p-6 text-center">
+                    <div class="text-3xl font-bold text-emerald-400 mb-2" id="current-bankroll">$1,000</div>
+                    <div class="text-gray-300">Current Bankroll</div>
+                    <div class="text-sm text-emerald-400 mt-1" id="bankroll-change">+$0.00</div>
+                </div>
+                <div class="glass-effect rounded-xl p-6 text-center">
+                    <div class="text-3xl font-bold text-blue-400 mb-2" id="total-profit">$0.00</div>
+                    <div class="text-gray-300">Total Profit</div>
+                    <div class="text-sm text-blue-400 mt-1" id="profit-percentage">+0.00%</div>
+                </div>
+                <div class="glass-effect rounded-xl p-6 text-center">
+                    <div class="text-3xl font-bold text-purple-400 mb-2" id="current-unit">$10.00</div>
+                    <div class="text-gray-300">Current Unit Size</div>
+                    <div class="text-sm text-purple-400 mt-1">1% of Bankroll</div>
+                </div>
+                <div class="glass-effect rounded-xl p-6 text-center">
+                    <div class="text-3xl font-bold text-orange-400 mb-2" id="max-drawdown">$0.00</div>
+                    <div class="text-gray-300">Max Drawdown</div>
+                    <div class="text-sm text-orange-400 mt-1">Peak to Trough</div>
+                </div>
+            </div>
+
+            <!-- Bankroll Chart -->
+            <div class="glass-effect rounded-xl p-6 mb-8">
+                <h3 class="text-xl font-semibold mb-4 text-white">Bankroll Growth</h3>
+                <div id="bankroll-chart" style="height: 400px;"></div>
+            </div>
+
+            <!-- Betting Controls -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+                <!-- Place Bet -->
+                <div class="glass-effect rounded-xl p-6">
+                    <h3 class="text-xl font-semibold mb-4 text-white">Place Bet</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm text-gray-300 mb-2">Game</label>
+                            <select id="bet-game" class="w-full bg-slate-700 text-white px-4 py-2 rounded-lg border border-slate-600">
+                                <option value="">Select Game</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-300 mb-2">Bet Amount (Units)</label>
+                            <input type="number" id="bet-units" value="1" min="0.1" step="0.1" 
+                                   class="w-full bg-slate-700 text-white px-4 py-2 rounded-lg border border-slate-600">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-300 mb-2">Odds</label>
+                            <input type="number" id="bet-odds" value="-110" 
+                                   class="w-full bg-slate-700 text-white px-4 py-2 rounded-lg border border-slate-600">
+                        </div>
+                        <button onclick="placeBet()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 px-4 rounded-lg font-semibold transition-all">
+                            Place Bet
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Bankroll Settings -->
+                <div class="glass-effect rounded-xl p-6">
+                    <h3 class="text-xl font-semibold mb-4 text-white">Settings</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm text-gray-300 mb-2">Starting Bankroll</label>
+                            <input type="number" id="starting-bankroll" value="1000" min="100" 
+                                   class="w-full bg-slate-700 text-white px-4 py-2 rounded-lg border border-slate-600">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-300 mb-2">Unit Size (%)</label>
+                            <input type="number" id="unit-percentage" value="1" min="0.5" max="5" step="0.1" 
+                                   class="w-full bg-slate-700 text-white px-4 py-2 rounded-lg border border-slate-600">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-300 mb-2">Max Risk per Day (%)</label>
+                            <input type="number" id="max-daily-risk" value="5" min="1" max="20" 
+                                   class="w-full bg-slate-700 text-white px-4 py-2 rounded-lg border border-slate-600">
+                        </div>
+                        <button onclick="updateSettings()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg font-semibold transition-all">
+                            Update Settings
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Active Bets -->
+                <div class="glass-effect rounded-xl p-6">
+                    <h3 class="text-xl font-semibold mb-4 text-white">Active Bets</h3>
+                    <div id="active-bets" class="space-y-3">
+                        <div class="text-center text-gray-400 py-4">
+                            <p>No active bets</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Betting History -->
+            <div class="glass-effect rounded-xl p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-semibold text-white">Betting History</h3>
+                    <div class="flex items-center space-x-4">
+                        <select id="history-filter" class="bg-slate-700 text-white px-4 py-2 rounded-lg border border-slate-600">
+                            <option value="all">All Bets</option>
+                            <option value="win">Wins Only</option>
+                            <option value="loss">Losses Only</option>
+                            <option value="pending">Pending Only</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="border-b border-gray-600">
+                                <th class="text-left py-3 px-4 text-gray-300">Date</th>
+                                <th class="text-left py-3 px-4 text-gray-300">Game</th>
+                                <th class="text-left py-3 px-4 text-gray-300">Bet</th>
+                                <th class="text-left py-3 px-4 text-gray-300">Units</th>
+                                <th class="text-left py-3 px-4 text-gray-300">Odds</th>
+                                <th class="text-left py-3 px-4 text-gray-300">Risk</th>
+                                <th class="text-left py-3 px-4 text-gray-300">Result</th>
+                                <th class="text-left py-3 px-4 text-gray-300">Profit</th>
+                            </tr>
+                        </thead>
+                        <tbody id="betting-history">
+                            <tr>
+                                <td colspan="8" class="text-center py-8 text-gray-400">
+                                    No betting history available
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-800 py-8 mt-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <p class="text-gray-400">© 2025 AI Sports Picks. Intelligent predictions for smarter betting.</p>
+        </div>
+    </footer>
+
+    <script src="bankroll.js"></script>
+</body>
+</html>

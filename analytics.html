@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics - AI Sports Picks</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/3.0.3/plotly.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .gradient-text {
+            background: linear-gradient(135deg, #10b981, #3b82f6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .glass-effect {
+            backdrop-filter: blur(10px);
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-white min-h-screen">
+    <!-- Navigation -->
+    <nav class="fixed top-0 w-full z-50 glass-effect">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center space-x-2">
+                    <div class="text-2xl">🏆</div>
+                    <span class="text-xl font-bold gradient-text">AI Sports Picks</span>
+                </div>
+                <div class="hidden md:flex space-x-8">
+                    <a href="index.html" class="text-white hover:text-emerald-300 transition-colors">Dashboard</a>
+                    <a href="analytics.html" class="text-emerald-400 hover:text-emerald-300 transition-colors">Analytics</a>
+                    <a href="predictions.html" class="text-white hover:text-emerald-300 transition-colors">Predictions</a>
+                    <a href="performance.html" class="text-white hover:text-emerald-300 transition-colors">Performance</a>
+                    <a href="bankroll.html" class="text-white hover:text-emerald-300 transition-colors">Bankroll</a>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="text-sm text-gray-300">Accuracy: <span id="nav-accuracy" class="text-emerald-400 font-semibold">—</span></div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Header -->
+    <section class="pt-24 pb-8 bg-slate-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center">
+                <h1 class="text-4xl font-black mb-4">
+                    <span class="gradient-text">Analytics Dashboard</span>
+                </h1>
+                <p class="text-xl text-gray-300">Deep insights into prediction performance and betting trends</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    <main class="py-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <!-- Key Metrics -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div class="glass-effect rounded-xl p-6 text-center">
+                    <div class="text-3xl font-bold text-emerald-400 mb-2" id="total-profit">+0.0</div>
+                    <div class="text-gray-300">Total Profit (Units)</div>
+                </div>
+                <div class="glass-effect rounded-xl p-6 text-center">
+                    <div class="text-3xl font-bold text-blue-400 mb-2" id="avg-confidence">0%</div>
+                    <div class="text-gray-300">Avg Confidence</div>
+                </div>
+                <div class="glass-effect rounded-xl p-6 text-center">
+                    <div class="text-3xl font-bold text-purple-400 mb-2" id="best-streak">0</div>
+                    <div class="text-gray-300">Best Winning Streak</div>
+                </div>
+                <div class="glass-effect rounded-xl p-6 text-center">
+                    <div class="text-3xl font-bold text-orange-400 mb-2" id="roi-percentage">0%</div>
+                    <div class="text-gray-300">Return on Investment</div>
+                </div>
+            </div>
+
+            <!-- Charts Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                <!-- Performance Chart -->
+                <div class="glass-effect rounded-xl p-6">
+                    <h3 class="text-xl font-semibold mb-4 text-white">Performance Over Time</h3>
+                    <div id="performance-chart" style="height: 300px;"></div>
+                </div>
+
+                <!-- Accuracy by Sport -->
+                <div class="glass-effect rounded-xl p-6">
+                    <h3 class="text-xl font-semibold mb-4 text-white">Accuracy by Sport</h3>
+                    <div id="sport-accuracy-chart" style="height: 300px;"></div>
+                </div>
+
+                <!-- Confidence Distribution -->
+                <div class="glass-effect rounded-xl p-6">
+                    <h3 class="text-xl font-semibold mb-4 text-white">Prediction Confidence</h3>
+                    <div id="confidence-chart" style="height: 300px;"></div>
+                </div>
+
+                <!-- Monthly Results -->
+                <div class="glass-effect rounded-xl p-6">
+                    <h3 class="text-xl font-semibold mb-4 text-white">Monthly Results</h3>
+                    <div id="monthly-chart" style="height: 300px;"></div>
+                </div>
+            </div>
+
+            <!-- Detailed Analytics -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <!-- Top Performing Teams -->
+                <div class="glass-effect rounded-xl p-6">
+                    <h3 class="text-xl font-semibold mb-4 text-white">Top Performing Teams</h3>
+                    <div id="top-teams" class="space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-300">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Betting Trends -->
+                <div class="glass-effect rounded-xl p-6">
+                    <h3 class="text-xl font-semibold mb-4 text-white">Betting Trends</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <div class="flex justify-between mb-2">
+                                <span class="text-gray-300">Home Team Bets</span>
+                                <span class="text-emerald-400" id="home-trend">0%</span>
+                            </div>
+                            <div class="w-full bg-gray-700 rounded-full h-2">
+                                <div class="bg-emerald-400 h-2 rounded-full" id="home-bar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between mb-2">
+                                <span class="text-gray-300">Away Team Bets</span>
+                                <span class="text-blue-400" id="away-trend">0%</span>
+                            </div>
+                            <div class="w-full bg-gray-700 rounded-full h-2">
+                                <div class="bg-blue-400 h-2 rounded-full" id="away-bar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between mb-2">
+                                <span class="text-gray-300">Over Bets</span>
+                                <span class="text-purple-400" id="over-trend">0%</span>
+                            </div>
+                            <div class="w-full bg-gray-700 rounded-full h-2">
+                                <div class="bg-purple-400 h-2 rounded-full" id="over-bar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Risk Analysis -->
+                <div class="glass-effect rounded-xl p-6">
+                    <h3 class="text-xl font-semibold mb-4 text-white">Risk Analysis</h3>
+                    <div class="space-y-4">
+                        <div class="flex justify-between">
+                            <span class="text-gray-300">High Risk Bets</span>
+                            <span class="text-red-400" id="high-risk">0%</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-300">Medium Risk Bets</span>
+                            <span class="text-yellow-400" id="medium-risk">0%</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-300">Low Risk Bets</span>
+                            <span class="text-emerald-400" id="low-risk">0%</span>
+                        </div>
+                        <div class="pt-4 border-t border-gray-600">
+                            <div class="flex justify-between">
+                                <span class="text-gray-300">Avg. Odds</span>
+                                <span class="text-white" id="avg-odds">0.00</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-300">Max Drawdown</span>
+                                <span class="text-red-400" id="max-drawdown">0.0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-800 py-8 mt-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <p class="text-gray-400">© 2025 AI Sports Picks. Intelligent predictions for smarter betting.</p>
+        </div>
+    </footer>
+
+    <script src="analytics.js"></script>
+</body>
+</html>
