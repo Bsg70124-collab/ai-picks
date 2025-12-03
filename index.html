@@ -44,14 +44,13 @@ function logPick(gameId, league, away, home, pick, spread, total, conf){
 }
 function scorePick(gameId, result){
   const hist = JSON.parse(localStorage.getItem('aiHist')||'[]');
-  overUnder": 229.5
   const row  = hist.find(r=>r.gameId===gameId);
   if(row){ row.result = result; localStorage.setItem('aiHist', JSON.stringify(hist)); }
   showAcc();
 }
 function showAcc(){
   const hist = JSON.parse(localStorage.getItem('aiHist')||'[]');
-  const graded = hist.filter(r=>r.result);
+ &nbsp;const graded = hist.filter(r=>r.result);
   const won    = graded.filter(r=>r.result==='W').length;
   const acc    = graded.length ? (won/graded.length*100).toFixed(1)+'%' : '—';
   document.getElementById('acc').innerHTML = `Accuracy: ${acc} (${graded.length} graded)`;
@@ -94,7 +93,7 @@ async function render(){
   try {
     const [nfl,nba] = await Promise.allSettled(SPORTS.map(fetchSport));
     const games = [...(nfl.status==='fulfilled'?nfl.value:[]),
-                   ...(nba.status==='fulfilled'?nba.value:[])];
+                   ...(nba.status==='fulfilled'?nba.value:]'];
     if(!games.length){ board.innerHTML='<div class="card">No games today.</div>'; return;}
     board.innerHTML='';
     games.forEach(g=>{
